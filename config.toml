@@ -1,0 +1,16 @@
+theme = "angels-ladder"
+baseurl = "https://milesmcbain.github.io/"
+title = "Miles McBain"
+author = "Miles McBain"
+copyright = "Copyright (c) 2017, Miles McBain; all rights reserved."
+canonifyurls = true
+paginate = 3
+
+[params]
+    author = "Miles McBain"
+    subtitle = "I bend data using code."
+    locale = "en-US"
+    profile = "/images/miles_face.jpeg"
+    twitter = "https://twitter.com/milesmcbain"
+    github = "https://github.com/milesmcbain"
+    about =  "/pages/about/index.html"

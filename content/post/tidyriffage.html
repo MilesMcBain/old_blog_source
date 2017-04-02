@@ -1,0 +1,160 @@
+---
+title: "Tidy Riffage"
+author: "Miles McBain"
+date: "2017-04-02"
+tags: [R]
+output: html_document
+---
+
+
+<!-- BLOGDOWN-BODY-BEFORE
+
+/BLOGDOWN-BODY-BEFORE -->
+
+<div id="melting-faces-with-tidy-tools" class="section level2">
+<h2>Melting Faces with Tidy Tools</h2>
+<p>Despite years of sporadic practice, I’m a fairly average musician. I’ve always been jealous of those ridiculously talented guitar shredders and Jazz freaks who can just root people to the spot, their jaws hanging open, struck dumb by the brilliance of what they are witnessing.</p>
+<p>But lately something amazing has happened. When I am teaching people the <code>tidyverse</code> I feel like I get a glimpse of what it is be that person. Or maybe this person:</p>
+<div>
+<p><img src="http://i.giphy.com/MGZP3Kk1GstwI.gif" alt="Math Math Math" style="display: block; margin-left: auto; margin-right: auto"></p>
+</div>
+<p>Or perhaps more precisely, this person:</p>
+<div>
+<p><img src="https://pbs.twimg.com/media/C2GPLjqWQAAswOY.jpg" alt="You're wizard Hadley" style="display: block; margin-left: auto; margin-right: auto; width:40%; max-height: 40%"></p>
+</div>
+<p>So let me share with you some <code>tidyverse</code> riffs that you too can use to blow minds and melt faces. Presented in increasing order of riffage.</p>
+</div>
+<div id="lazy-na-check" class="section level2">
+<h2>Lazy NA check</h2>
+<p>Basic use of <code>purrr</code> can still impress due to results returned as data frames. For added mysteriousity you can swap <code>map_df()</code> for <code>summarise_all()</code>.</p>
+<pre class="r"><code>airquality %&gt;%
+    map_df(.f = anyNA)</code></pre>
+<pre><code>## # A tibble: 1 × 6
+##   Ozone Solar.R  Wind  Temp Month   Day
+##   &lt;lgl&gt;   &lt;lgl&gt; &lt;lgl&gt; &lt;lgl&gt; &lt;lgl&gt; &lt;lgl&gt;
+## 1  TRUE    TRUE FALSE FALSE FALSE FALSE</code></pre>
+</div>
+<div id="string-to-factor-convert-all" class="section level2">
+<h2>String to factor convert-all</h2>
+<p><code>StringAsFactors=FALSE</code> is defintiely the right way to go, but for modelling you’ll likely need those strings to be factors. Can reverse as variation.</p>
+<pre class="r"><code>dat %&gt;%
+    mutate_if(.predicate = is.character, 
+              .funs = as.factor)</code></pre>
+</div>
+<div id="lazy-na-vis" class="section level2">
+<h2>Lazy NA Vis</h2>
+<p>A key component of a great riff is surpsise. Base vis features are the little twist on this dataframe vis for NA. If you like this, you’ll love <a href="https://github.com/njtierney/visdat">visdat::vis_dat()</a></p>
+<pre class="r"><code>airquality %&gt;%
+  map_df(is.na) %&gt;%
+  as.matrix() %&gt;%
+  t() %&gt;%
+  image()</code></pre>
+<p><img src="#####../content/post/tidyriffage_files/figure-html/unnamed-chunk-5-1.png" width="1400" style="display: block; margin: auto;" /></p>
+</div>
+<div id="slick-effect-plot" class="section level2">
+<h2>Slick Effect Plot</h2>
+<p>Parsing linear model effects works great as a vis. A solid intro riff for a rant about how rad <code>broom</code> is.</p>
+<pre class="r"><code>glm_fit %&gt;%
+  tidy() %&gt;%
+  mutate(effect.lwr_ci = exp(estimate - 2*std.error),
+       effect = exp(estimate),
+       effect.upr_ci = exp(estimate + 2*std.error)) %&gt;%
+  ggplot() + 
+  geom_point(aes(x=effect, y=term)) +
+  geom_errorbarh(aes(x=effect, 
+                     xmax=effect.upr_ci, 
+                     xmin=effect.lwr_ci, 
+                     y=term)) </code></pre>
+<p><img src="#####../content/post/tidyriffage_files/figure-html/unnamed-chunk-7-1.png" width="1400" style="display: block; margin: auto;" /></p>
+</div>
+<div id="bulk-summary-features" class="section level2">
+<h2>Bulk Summary Features</h2>
+<p>Produce summary stats en-masse. Ripe for variable selection.</p>
+<pre class="r"><code>airquality %&gt;%
+    group_by(Month) %&gt;%
+    summarise_at(.cols = vars(Ozone, Solar.R, Wind, Temp),
+                 .funs = funs(q1 = quantile(., probs=0.25),
+                              med = median,
+                              mean = mean,
+                              q3 = quantile(., probs = 0.75),
+                              sd = sd 
+                          ),
+                 na.rm = TRUE
+                 ) %&gt;% names()</code></pre>
+<pre><code>##  [1] &quot;Month&quot;        &quot;Ozone_q1&quot;     &quot;Solar.R_q1&quot;   &quot;Wind_q1&quot;     
+##  [5] &quot;Temp_q1&quot;      &quot;Ozone_med&quot;    &quot;Solar.R_med&quot;  &quot;Wind_med&quot;    
+##  [9] &quot;Temp_med&quot;     &quot;Ozone_mean&quot;   &quot;Solar.R_mean&quot; &quot;Wind_mean&quot;   
+## [13] &quot;Temp_mean&quot;    &quot;Ozone_q3&quot;     &quot;Solar.R_q3&quot;   &quot;Wind_q3&quot;     
+## [17] &quot;Temp_q3&quot;      &quot;Ozone_sd&quot;     &quot;Solar.R_sd&quot;   &quot;Wind_sd&quot;     
+## [21] &quot;Temp_sd&quot;</code></pre>
+</div>
+<div id="lag-it-out" class="section level2">
+<h2>Lag It Out</h2>
+<p>Generating lags can be a drag, but you can create all the lags for all the things with a wave of mutate_at!</p>
+<pre class="r"><code>airquality %&gt;% 
+  arrange(Month, Day) %&gt;%
+  mutate_at(.cols = vars(Ozone, Solar.R, Wind, Temp),
+            .funs = funs(lag1 = lag(.,1),
+                         lag3 = lag(.,3),
+                         lag7 = lag(.,7),
+                         lag14 = lag(.,14))) %&gt;%
+  names()</code></pre>
+<pre><code>##  [1] &quot;Ozone&quot;         &quot;Solar.R&quot;       &quot;Wind&quot;          &quot;Temp&quot;         
+##  [5] &quot;Month&quot;         &quot;Day&quot;           &quot;Ozone_lag1&quot;    &quot;Solar.R_lag1&quot; 
+##  [9] &quot;Wind_lag1&quot;     &quot;Temp_lag1&quot;     &quot;Ozone_lag3&quot;    &quot;Solar.R_lag3&quot; 
+## [13] &quot;Wind_lag3&quot;     &quot;Temp_lag3&quot;     &quot;Ozone_lag7&quot;    &quot;Solar.R_lag7&quot; 
+## [17] &quot;Wind_lag7&quot;     &quot;Temp_lag7&quot;     &quot;Ozone_lag14&quot;   &quot;Solar.R_lag14&quot;
+## [21] &quot;Wind_lag14&quot;    &quot;Temp_lag14&quot;</code></pre>
+</div>
+<div id="search-model-space-over-formulae-link-functions-anything." class="section level2">
+<h2>Search model space over formulae, link functions, ANYTHING.</h2>
+<p><code>purrr</code>, <code>modelr</code>, <code>dplyr</code>, <code>broom</code> and <code>tidyr</code> all working in a glorious harmony. If Classical Gas could be played with tidy tools it would go something like this. People will weep. Either for beauty or lost time.</p>
+<pre class="r"><code>data(&quot;challeng&quot;)
+link &lt;- c(&quot;logit&quot;, &quot;probit&quot;, &quot;cloglog&quot;)
+formulas &lt;- formulas(.response = ~ cbind(Fail, n-Fail), 
+                     ~ Temp, 
+                     ~ Temp + Pres) 
+
+model_grid &lt;- as_data_frame(expand.grid(formulas, link, 
+                                        stringsAsFactors = FALSE))
+names(model_grid) &lt;- c(&quot;formula&quot;,&quot;link&quot;) 
+
+model_grid %&gt;%
+mutate(family = map(link, binomial),
+       model = paste0(formula),
+       fit = pmap(.l = list( formula = formula, family = family),
+                  .f = glm,
+                  data = challeng),
+       results = map(fit, glance)) %&gt;%
+unnest(results)</code></pre>
+<pre><code>## # A tibble: 6 × 12
+##         formula    link       family                               model
+##          &lt;list&gt;   &lt;chr&gt;       &lt;list&gt;                               &lt;chr&gt;
+## 1 &lt;S3: formula&gt;   logit &lt;S3: family&gt;        cbind(Fail, n - Fail) ~ Temp
+## 2 &lt;S3: formula&gt;   logit &lt;S3: family&gt; cbind(Fail, n - Fail) ~ Temp + Pres
+## 3 &lt;S3: formula&gt;  probit &lt;S3: family&gt;        cbind(Fail, n - Fail) ~ Temp
+## 4 &lt;S3: formula&gt;  probit &lt;S3: family&gt; cbind(Fail, n - Fail) ~ Temp + Pres
+## 5 &lt;S3: formula&gt; cloglog &lt;S3: family&gt;        cbind(Fail, n - Fail) ~ Temp
+## 6 &lt;S3: formula&gt; cloglog &lt;S3: family&gt; cbind(Fail, n - Fail) ~ Temp + Pres
+## # ... with 8 more variables: fit &lt;list&gt;, null.deviance &lt;dbl&gt;,
+## #   df.null &lt;int&gt;, logLik &lt;dbl&gt;, AIC &lt;dbl&gt;, BIC &lt;dbl&gt;, deviance &lt;dbl&gt;,
+## #   df.residual &lt;int&gt;</code></pre>
+<div id="thats-what-im-talkin-bout" class="section level3">
+<h3>That’s what I’m talkin’ ’bout!</h3>
+<div>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/EEzyrpfrPEI" frameborder="0" allowfullscreen style="display: block; margin-left: auto; margin-right: auto">
+</iframe>
+</div>
+</div>
+</div>
+
+
+
+<!-- BLOGDOWN-HEAD
+
+
+
+
+
+
+/BLOGDOWN-HEAD -->

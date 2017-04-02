@@ -1,0 +1,23 @@
+---
+title: "Letting go of by_row()"
+author: "Miles McBain"
+date: "2017-04-02"
+tags: [R]
+output: html_document
+---
+
+> `by_row() is deprecated; please use a combination of: tidyr::nest(); dplyr::mutate(); purrr::map().`
+
+> `invoke_rows() is deprecated; please use pmap() instead.`
+
+<centre>![](https://media.giphy.com/media/swrTFeuOt2v6g/giphy.gif)</centre>
+
+Wat?
+
+Just when it seemed like I was getting the hang of this `purrr` thing, I started noticing these messages appear. WHY HADLEY? WHY?! 
+
+Well if you read the `purrr` [NEWS.md](https://github.com/tidyverse/purrr/blob/master/NEWS.md), it sounds like Hadz was unhappy with the dependency profile of `purrr`. And in that light, slimming down the package makes complete sense. I can't be the only one who has shied away from using it in package development because of the depenencies brought along for the ride. These include `dplyr`, `lazyeval`, and `rcpp`.
+
+So while I get the thinking here, I was dissappointed that I couldn't find any clear examples about how I should replace `by_row` and `invoke_rows` with the suggested functions. The rest of this post attempts to document a few useful examples.
+
+#by_row for nest, mutate, map

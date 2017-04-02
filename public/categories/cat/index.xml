@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Cat on Miles McBain</title>
+    <link>/categories/cat/index.xml</link>
+    <description>Recent content in Cat on Miles McBain</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <copyright>Copyright (c) 2017, Miles McBain; all rights reserved.</copyright>
+    <atom:link href="/categories/cat/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>R Has No Primitives</title>
+      <link>/post/r_has_no_primitives/</link>
+      <pubDate>Thu, 26 May 2016 00:00:00 +0000</pubDate>
+      
+      <guid>/post/r_has_no_primitives/</guid>
+      <description>&lt;!-- BLOGDOWN-BODY-BEFORE
+
+/BLOGDOWN-BODY-BEFORE --&gt;
+
+&lt;div id=&#34;the-good-bit&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;The Good Bit&lt;/h1&gt;
+&lt;p&gt;Some weeks ago Hadley tweeted &lt;a href=&#34;https://twitter.com/hadleywickham/status/732288980549390336&#34;&gt;this graphic&lt;/a&gt; about objects and names in R. Someone asked him to give a situation where this was important and he said:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;I haven’t been able to figure that out. But you’ll make terrible predictions about performance unless you know&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;I thought I knew what this meant. I truly did. But it wasn’t until I saw the conversation around &lt;a href=&#34;https://twitter.com/nj_tierney/status/735087930251710464&#34;&gt;this tweet&lt;/a&gt; from @&lt;a href=&#34;https://twitter.com/nj_tierney&#34;&gt;nj_tierney&lt;/a&gt; that I can honestly say the penny finally dropped. And boy did it drop. I’ll say this real slow and clear like for old school coders like me:&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;R has no primitive types.&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;No seriously. Everything is an object. Integers and floats are always numeric vectors, even when then are 1 just one element long. EVEN bloody boolean values which can be represented by a single bit in memory are objects. check this out:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(pryr)
+abool &amp;lt;- T
+object_size(abool)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 48 B&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;48 bytes for information that can be represented by a single bit! O.O In truth this isn’t so bad because most langauges pad their bools. But the point is &lt;code&gt;abool&lt;/code&gt; is not a bool. It’s a SEXP… How cute.&lt;/p&gt;
+&lt;p&gt;SEXPs are header thingies that describe objects. Further to our discussion today, they have a &lt;code&gt;named&lt;/code&gt; attribute that records how many names an object has been assigned. Hence Hadley’s graphic. If you look at the &lt;a href=&#34;https://cran.r-project.org/doc/manuals/r-release/R-ints.html#SEXPTYPEs&#34;&gt;beastiary of SEXPs in the R language&lt;/a&gt; you will also see there are no non-vector data type objects.&lt;/p&gt;
+&lt;div class=&#34;figure&#34;&gt;
+&lt;img src=&#34;http://i.giphy.com/OK27wINdQS5YQ.gif&#34; /&gt;
+
+&lt;/div&gt;
+&lt;p&gt;I know right?&lt;/p&gt;
+&lt;p&gt;It gets better. This framework allows R to do some neat tricks with the assignment operator. I’ll quote section 1.1.2 of the R manual at you, because I think it explains it quite nicely:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;The named field is set and accessed by the SET_NAMED and NAMED macros, and take values 0, 1 and 2. R has a &amp;#39;call by value&amp;#39; illusion, so an assignment like
+
+b &amp;lt;- a
+appears to make a copy of a and refer to it as b. However, if neither a nor b are subsequently altered there is no need to copy. What really happens is that a new symbol b is bound to the same value as a and the named field on the value object is set (in this case to 2). When an object is about to be altered, the named field is consulted. A value of 2 means that the object must be duplicated before being changed. (Note that this does not say that it is necessary to duplicate, only that it should be duplicated whether necessary or not.) A value of 0 means that it is known that no other SEXP shares data with this object, and so it may safely be altered. A value of 1 is used for situations like
+
+dim(a) &amp;lt;- c(7, 2)
+where in principle two copies of a exist for the duration of the computation as (in principle)
+
+a &amp;lt;- `dim&amp;lt;-`(a, c(7, 2))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;TLDR:&lt;/strong&gt; R delays copies due to assignment until it absolutely has to, and can optimise out ‘in principle’ copies. There is no call by value. It was all… an ‘illusion’.&lt;/p&gt;
+&lt;div class=&#34;figure&#34;&gt;
+&lt;img src=&#34;http://i.giphy.com/qJxFuXXWpkdEI.gif&#34; /&gt;
+
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;a-history-lesson&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;A History Lesson&lt;/h1&gt;
+&lt;p&gt;Why am I making a big deal out of this? Well for me this was very surprising. I learned to code in C++, where there was disctinction between primitive types and objects. Primitive types don’t waste any memory on headers, they are literally just the raw data represented in memory, and the compiler does the job of to tracking their type. For example an &lt;code&gt;int&lt;/code&gt; takes up 4 or 8 bytes of memory (depending on 32, or 64 bit) and it uses all of that memory to represent the numerical value of that integer.&lt;/p&gt;
+&lt;p&gt;Let’s compare that old world:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(Rcpp)
+Rcpp::cppFunction(
+&amp;#39;void primitiveDemo(){
+  NumericVector output(2);  
+  
+  int a = 2;
+  int b = a;
+  int asize = sizeof(a);
+  int bsize = sizeof(b);
+  
+  Rcpp::Rcout &amp;lt;&amp;lt; &amp;quot;address of a: &amp;quot; &amp;lt;&amp;lt; &amp;amp;a &amp;lt;&amp;lt; &amp;quot;, address of b: &amp;quot; &amp;lt;&amp;lt; &amp;amp;b;
+  Rcpp::Rcout &amp;lt;&amp;lt; &amp;quot;, size of a: &amp;quot; &amp;lt;&amp;lt; asize &amp;lt;&amp;lt; &amp;quot;, size of b: &amp;quot; &amp;lt;&amp;lt; bsize;
+  
+  return;
+}&amp;#39;
+)
+
+primitiveDemo()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## address of a: 0x7fff52f35c00, address of b: 0x7fff52f35bfc, size of a: 4, size of b: 4&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;With the new:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;a &amp;lt;- 2
+b &amp;lt;- a
+paste0(&amp;quot;address of a: &amp;quot;, address(a), &amp;quot;, address of b: &amp;quot;, address(b))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] &amp;quot;address of a: 0x7fc1f70393b8, address of b: 0x7fc1f70393b8&amp;quot;&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;paste0(&amp;quot;size of a: &amp;quot;, object_size(a), &amp;quot;, size of b: &amp;quot;, object_size(b))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] &amp;quot;size of a: 48, size of b: 48&amp;quot;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So R is currently using a total of 48 bytes for storage because it did not actually make a copy. C++ makes the copy and uses a total of 8 bytes&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;take-away&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Take Away&lt;/h1&gt;
+&lt;p&gt;If you’re tyring to optimise R while thinking like a c++ coder, you may well be doing more harm than good. I myself have fallen foul of this in an attempt to modify data frames in place with my &lt;code&gt;pushr&lt;/code&gt; package. It ended up just being syntactic sugar, with no observable performance boost.&lt;/p&gt;
+&lt;/div&gt;
+
+
+
+&lt;!-- BLOGDOWN-HEAD
+
+
+
+
+
+
+/BLOGDOWN-HEAD --&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

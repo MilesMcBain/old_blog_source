@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Drafts on Miles McBain</title>
+    <link>https://milesmcbain.github.io/drafts/index.xml</link>
+    <description>Recent content in Drafts on Miles McBain</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <copyright>Copyright (c) 2017, Miles McBain; all rights reserved.</copyright>
+    <lastBuildDate>Sun, 02 Apr 2017 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://milesmcbain.github.io/drafts/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Letting go of by_row()</title>
+      <link>https://milesmcbain.github.io/drafts/letting_go_of_by_row/</link>
+      <pubDate>Sun, 02 Apr 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://milesmcbain.github.io/drafts/letting_go_of_by_row/</guid>
+      <description>&lt;!-- BLOGDOWN-BODY-BEFORE
+
+/BLOGDOWN-BODY-BEFORE --&gt;
+
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(tidyverse)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## Loading tidyverse: ggplot2
+## Loading tidyverse: tibble
+## Loading tidyverse: tidyr
+## Loading tidyverse: readr
+## Loading tidyverse: purrr
+## Loading tidyverse: dplyr&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## Conflicts with tidy packages ----------------------------------------------&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## filter(): dplyr, stats
+## lag():    dplyr, stats&lt;/code&gt;&lt;/pre&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;by_row() is deprecated; please use a combination of: tidyr::nest(); dplyr::mutate(); purrr::map().&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;invoke_rows() is deprecated; please use pmap() instead.&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;centre&gt;&lt;img src=&#34;https://media.giphy.com/media/swrTFeuOt2v6g/giphy.gif&#34; /&gt;&lt;/centre&gt;&lt;/p&gt;
+&lt;p&gt;Wat?&lt;/p&gt;
+&lt;p&gt;Just when it seemed like I was getting the hang of this &lt;code&gt;purrr&lt;/code&gt; thing, I started noticing these messages appear. WHY HADLEY? WHY?!&lt;/p&gt;
+&lt;p&gt;Well if you read the &lt;code&gt;purrr&lt;/code&gt; &lt;a href=&#34;https://github.com/tidyverse/purrr/blob/master/NEWS.md&#34;&gt;NEWS.md&lt;/a&gt;, it sounds like Hadz was unhappy with the dependency profile of &lt;code&gt;purrr&lt;/code&gt;. And in that light, slimming down the package makes complete sense. I can’t be the only one who has shied away from using it in package development because of the depenencies brought along for the ride. These include &lt;code&gt;dplyr&lt;/code&gt;, &lt;code&gt;lazyeval&lt;/code&gt;, and &lt;code&gt;rcpp&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;So while I get the thinking here, I was frustrated that I couldn’t find any clear examples about how I should replace &lt;code&gt;by_row&lt;/code&gt; and &lt;code&gt;invoke_rows&lt;/code&gt; with the suggested functions. The rest of this post attempts to document how you might do this.&lt;/p&gt;
+&lt;div id=&#34;all-you-need-is-pmap-unnest&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;All you need is pmap + unnest()&lt;/h1&gt;
+&lt;p&gt;This one was the hardest for me to understand. It didn’t help that it was incomplete. &lt;code&gt;tidyr::unnest()&lt;/code&gt; is important for replicating the functionality of &lt;code&gt;by_row&lt;/code&gt;. It should say:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;by_row() is deprecated; please use a combination of: tidyr::nest(); dplyr::mutate(); purrr::map(); tidyr::unnest();&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;And to make matters more confusing, most people probably won’t need &lt;code&gt;nest()&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Let me explain. Part of the utility of &lt;code&gt;by_row&lt;/code&gt; was the facility to collate results in the output as new rows or new columns. Imagine you are working through rows fitting models or doing other work. You could return the results as new named columns bound on the side of your original data (wide form), or as two new key-value columns containing rows for each result (long form). Here is a toy example with two functions that find the min and max of a row. One returns a dataframe. One returns a vector.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;min_max_df &amp;lt;- function(row){
+    data_frame(min = lift_vl(min)(row),
+         max = lift_vl(max)(row) #Yes, I even lift.
+    )    
+}
+
+min_max_vec &amp;lt;- function(row){
+    c(lift_vl(min)(row), lift_vl(max)(row))   
+}
+
+#wide form, applicable to data frames:
+mtcars[1:4] %&amp;gt;% head() %&amp;gt;% by_row(min_max_df, .collate = &amp;quot;cols&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 6 × 6
+##     mpg   cyl  disp    hp  min1  max1
+##   &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt;
+## 1  21.0     6   160   110     6   160
+## 2  21.0     6   160   110     6   160
+## 3  22.8     4   108    93     4   108
+## 4  21.4     6   258   110     6   258
+## 5  18.7     8   360   175     8   360
+## 6  18.1     6   225   105     6   225&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;#long form, applicable to vectors
+mtcars[1:4] %&amp;gt;% head() %&amp;gt;% by_row(min_max_vec, .collate = &amp;quot;rows&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 12 × 6
+##      mpg   cyl  disp    hp  .row  .out
+##    &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;int&amp;gt; &amp;lt;dbl&amp;gt;
+## 1   21.0     6   160   110     1     6
+## 2   21.0     6   160   110     1   160
+## 3   21.0     6   160   110     2     6
+## 4   21.0     6   160   110     2   160
+## 5   22.8     4   108    93     3     4
+## 6   22.8     4   108    93     3   108
+## 7   21.4     6   258   110     4     6
+## 8   21.4     6   258   110     4   258
+## 9   18.7     8   360   175     5     8
+## 10  18.7     8   360   175     5   360
+## 11  18.1     6   225   105     6     6
+## 12  18.1     6   225   105     6   225&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This is actually a bit shit. A spurious “1” gets added to our column names in one case. And using row collation would behave almost the same as column collation for &lt;code&gt;min_max_df&lt;/code&gt;. In retrospect Hadley probably also hates &lt;code&gt;by_row&lt;/code&gt; because it does too much, catering to dataframe or vector based workflows.&lt;/p&gt;
+&lt;p&gt;In a post &lt;code&gt;by_row()&lt;/code&gt; world, there is one way to do this:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;chickwts %&amp;gt;% nest(weight) %&amp;gt;%
+    by&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+
+
+&lt;!-- BLOGDOWN-HEAD
+
+
+
+
+
+
+/BLOGDOWN-HEAD --&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

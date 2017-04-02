@@ -1,0 +1,96 @@
+---
+title: "Letting go of by_row()"
+author: "Miles McBain"
+date: "2017-04-02"
+tags: [R]
+output: html_document
+---
+
+
+<!-- BLOGDOWN-BODY-BEFORE
+
+/BLOGDOWN-BODY-BEFORE -->
+
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## Loading tidyverse: ggplot2
+## Loading tidyverse: tibble
+## Loading tidyverse: tidyr
+## Loading tidyverse: readr
+## Loading tidyverse: purrr
+## Loading tidyverse: dplyr</code></pre>
+<pre><code>## Conflicts with tidy packages ----------------------------------------------</code></pre>
+<pre><code>## filter(): dplyr, stats
+## lag():    dplyr, stats</code></pre>
+<blockquote>
+<p><code>by_row() is deprecated; please use a combination of: tidyr::nest(); dplyr::mutate(); purrr::map().</code></p>
+</blockquote>
+<blockquote>
+<p><code>invoke_rows() is deprecated; please use pmap() instead.</code></p>
+</blockquote>
+<p><centre><img src="https://media.giphy.com/media/swrTFeuOt2v6g/giphy.gif" /></centre></p>
+<p>Wat?</p>
+<p>Just when it seemed like I was getting the hang of this <code>purrr</code> thing, I started noticing these messages appear. WHY HADLEY? WHY?!</p>
+<p>Well if you read the <code>purrr</code> <a href="https://github.com/tidyverse/purrr/blob/master/NEWS.md">NEWS.md</a>, it sounds like Hadz was unhappy with the dependency profile of <code>purrr</code>. And in that light, slimming down the package makes complete sense. I can’t be the only one who has shied away from using it in package development because of the depenencies brought along for the ride. These include <code>dplyr</code>, <code>lazyeval</code>, and <code>rcpp</code>.</p>
+<p>So while I get the thinking here, I was frustrated that I couldn’t find any clear examples about how I should replace <code>by_row</code> and <code>invoke_rows</code> with the suggested functions. The rest of this post attempts to document how you might do this.</p>
+<div id="all-you-need-is-pmap-unnest" class="section level1">
+<h1>All you need is pmap + unnest()</h1>
+<p>This one was the hardest for me to understand. It didn’t help that it was incomplete. <code>tidyr::unnest()</code> is important for replicating the functionality of <code>by_row</code>. It should say:</p>
+<blockquote>
+<p><code>by_row() is deprecated; please use a combination of: tidyr::nest(); dplyr::mutate(); purrr::map(); tidyr::unnest();</code></p>
+</blockquote>
+<p>And to make matters more confusing, most people probably won’t need <code>nest()</code>.</p>
+<p>Let me explain. Part of the utility of <code>by_row</code> was the facility to collate results in the output as new rows or new columns. Imagine you are working through rows fitting models or doing other work. You could return the results as new named columns bound on the side of your original data (wide form), or as two new key-value columns containing rows for each result (long form). Here is a toy example with two functions that find the min and max of a row. One returns a dataframe. One returns a vector.</p>
+<pre class="r"><code>min_max_df &lt;- function(row){
+    data_frame(min = lift_vl(min)(row),
+         max = lift_vl(max)(row) #Yes, I even lift.
+    )    
+}
+
+min_max_vec &lt;- function(row){
+    c(lift_vl(min)(row), lift_vl(max)(row))   
+}
+
+#wide form, applicable to data frames:
+mtcars[1:4] %&gt;% head() %&gt;% by_row(min_max_df, .collate = &quot;cols&quot;)</code></pre>
+<pre><code>## # A tibble: 6 × 6
+##     mpg   cyl  disp    hp  min1  max1
+##   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1  21.0     6   160   110     6   160
+## 2  21.0     6   160   110     6   160
+## 3  22.8     4   108    93     4   108
+## 4  21.4     6   258   110     6   258
+## 5  18.7     8   360   175     8   360
+## 6  18.1     6   225   105     6   225</code></pre>
+<pre class="r"><code>#long form, applicable to vectors
+mtcars[1:4] %&gt;% head() %&gt;% by_row(min_max_vec, .collate = &quot;rows&quot;)</code></pre>
+<pre><code>## # A tibble: 12 × 6
+##      mpg   cyl  disp    hp  .row  .out
+##    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;int&gt; &lt;dbl&gt;
+## 1   21.0     6   160   110     1     6
+## 2   21.0     6   160   110     1   160
+## 3   21.0     6   160   110     2     6
+## 4   21.0     6   160   110     2   160
+## 5   22.8     4   108    93     3     4
+## 6   22.8     4   108    93     3   108
+## 7   21.4     6   258   110     4     6
+## 8   21.4     6   258   110     4   258
+## 9   18.7     8   360   175     5     8
+## 10  18.7     8   360   175     5   360
+## 11  18.1     6   225   105     6     6
+## 12  18.1     6   225   105     6   225</code></pre>
+<p>This is actually a bit shit. A spurious “1” gets added to our column names in one case. And using row collation would behave almost the same as column collation for <code>min_max_df</code>. In retrospect Hadley probably also hates <code>by_row</code> because it does too much, catering to dataframe or vector based workflows.</p>
+<p>In a post <code>by_row()</code> world, there is one way to do this:</p>
+<pre class="r"><code>chickwts %&gt;% nest(weight) %&gt;%
+    by</code></pre>
+</div>
+
+
+
+<!-- BLOGDOWN-HEAD
+
+
+
+
+
+
+/BLOGDOWN-HEAD -->

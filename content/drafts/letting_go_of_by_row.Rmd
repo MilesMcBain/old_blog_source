@@ -1,0 +1,65 @@
+---
+title: "Letting go of by_row()"
+author: "Miles McBain"
+date: "2017-04-02"
+tags: [R]
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+> `by_row() is deprecated; please use a combination of: tidyr::nest(); dplyr::mutate(); purrr::map().`
+
+> `invoke_rows() is deprecated; please use pmap() instead.`
+
+<centre>![](https://media.giphy.com/media/swrTFeuOt2v6g/giphy.gif)</centre>
+
+Wat?
+
+Just when it seemed like I was getting the hang of this `purrr` thing, I started noticing these messages appear. WHY HADLEY? WHY?! 
+
+Well if you read the `purrr` [NEWS.md](https://github.com/tidyverse/purrr/blob/master/NEWS.md), it sounds like Hadz was unhappy with the dependency profile of `purrr`. And in that light, slimming down the package makes complete sense. I can't be the only one who has shied away from using it in package development because of the depenencies brought along for the ride. These include `dplyr`, `lazyeval`, and `rcpp`.
+
+So while I get the thinking here, I was frustrated that I couldn't find any clear examples about how I should replace `by_row` and `invoke_rows` with the suggested functions. The rest of this post attempts to document how you might do this.
+
+#All you need is pmap + unnest()
+This one was the hardest for me to understand. It didn't help that it was incomplete. `tidyr::unnest()` is important for replicating the functionality of `by_row`. It should say:
+
+> `by_row() is deprecated; please use a combination of: tidyr::nest(); dplyr::mutate(); purrr::map(); tidyr::unnest(); `
+
+And to make matters more confusing, most people probably won't need `nest()`. 
+
+Let me explain. Part of the utility of `by_row` was the facility to collate results in the output as new rows or new columns. Imagine you are working through rows fitting models or doing other work. You could return the results as new named columns bound on the side of your original data (wide form), or as two new key-value columns containing rows for each result (long form). Here is a toy example with two functions that find the min and max of a row. One returns a dataframe. One returns a vector.
+
+```{r}
+min_max_df <- function(row){
+    data_frame(min = lift_vl(min)(row),
+         max = lift_vl(max)(row) #Yes, I even lift.
+    )    
+}
+
+min_max_vec <- function(row){
+    c(lift_vl(min)(row), lift_vl(max)(row))   
+}
+
+#wide form, applicable to data frames:
+mtcars[1:4] %>% head() %>% by_row(min_max_df, .collate = "cols")
+```
+```{r}
+#long form, applicable to vectors
+mtcars[1:4] %>% head() %>% by_row(min_max_vec, .collate = "rows")
+```
+
+This is actually a bit shit. A spurious "1" gets added to our column names in one case. And using row collation would behave almost the same as column collation for `min_max_df`. In retrospect Hadley probably also hates `by_row` because it does too much, catering to dataframe or vector based workflows. 
+
+In a post `by_row()` world, there is one way to do this:
+```{r, eval = FALSE}
+chickwts %>% nest(weight) %>%
+    by
+
+```
+
+

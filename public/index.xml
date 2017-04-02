@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Miles McBain</title>
+    <link>https://milesmcbain.github.io/index.xml</link>
+    <description>Recent content on Miles McBain</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <copyright>Copyright (c) 2017, Miles McBain; all rights reserved.</copyright>
+    <lastBuildDate>Sun, 02 Apr 2017 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://milesmcbain.github.io/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Letting go of by_row()</title>
+      <link>https://milesmcbain.github.io/drafts/letting_go_of_by_row/</link>
+      <pubDate>Sun, 02 Apr 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://milesmcbain.github.io/drafts/letting_go_of_by_row/</guid>
+      <description>&lt;!-- BLOGDOWN-BODY-BEFORE
+
+/BLOGDOWN-BODY-BEFORE --&gt;
+
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(tidyverse)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## Loading tidyverse: ggplot2
+## Loading tidyverse: tibble
+## Loading tidyverse: tidyr
+## Loading tidyverse: readr
+## Loading tidyverse: purrr
+## Loading tidyverse: dplyr&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## Conflicts with tidy packages ----------------------------------------------&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## filter(): dplyr, stats
+## lag():    dplyr, stats&lt;/code&gt;&lt;/pre&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;by_row() is deprecated; please use a combination of: tidyr::nest(); dplyr::mutate(); purrr::map().&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;invoke_rows() is deprecated; please use pmap() instead.&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;centre&gt;&lt;img src=&#34;https://media.giphy.com/media/swrTFeuOt2v6g/giphy.gif&#34; /&gt;&lt;/centre&gt;&lt;/p&gt;
+&lt;p&gt;Wat?&lt;/p&gt;
+&lt;p&gt;Just when it seemed like I was getting the hang of this &lt;code&gt;purrr&lt;/code&gt; thing, I started noticing these messages appear. WHY HADLEY? WHY?!&lt;/p&gt;
+&lt;p&gt;Well if you read the &lt;code&gt;purrr&lt;/code&gt; &lt;a href=&#34;https://github.com/tidyverse/purrr/blob/master/NEWS.md&#34;&gt;NEWS.md&lt;/a&gt;, it sounds like Hadz was unhappy with the dependency profile of &lt;code&gt;purrr&lt;/code&gt;. And in that light, slimming down the package makes complete sense. I can’t be the only one who has shied away from using it in package development because of the depenencies brought along for the ride. These include &lt;code&gt;dplyr&lt;/code&gt;, &lt;code&gt;lazyeval&lt;/code&gt;, and &lt;code&gt;rcpp&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;So while I get the thinking here, I was frustrated that I couldn’t find any clear examples about how I should replace &lt;code&gt;by_row&lt;/code&gt; and &lt;code&gt;invoke_rows&lt;/code&gt; with the suggested functions. The rest of this post attempts to document how you might do this.&lt;/p&gt;
+&lt;div id=&#34;all-you-need-is-pmap-unnest&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;All you need is pmap + unnest()&lt;/h1&gt;
+&lt;p&gt;This one was the hardest for me to understand. It didn’t help that it was incomplete. &lt;code&gt;tidyr::unnest()&lt;/code&gt; is important for replicating the functionality of &lt;code&gt;by_row&lt;/code&gt;. It should say:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;by_row() is deprecated; please use a combination of: tidyr::nest(); dplyr::mutate(); purrr::map(); tidyr::unnest();&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;And to make matters more confusing, most people probably won’t need &lt;code&gt;nest()&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Let me explain. Part of the utility of &lt;code&gt;by_row&lt;/code&gt; was the facility to collate results in the output as new rows or new columns. Imagine you are working through rows fitting models or doing other work. You could return the results as new named columns bound on the side of your original data (wide form), or as two new key-value columns containing rows for each result (long form). Here is a toy example with two functions that find the min and max of a row. One returns a dataframe. One returns a vector.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;min_max_df &amp;lt;- function(row){
+    data_frame(min = lift_vl(min)(row),
+         max = lift_vl(max)(row) #Yes, I even lift.
+    )    
+}
+
+min_max_vec &amp;lt;- function(row){
+    c(lift_vl(min)(row), lift_vl(max)(row))   
+}
+
+#wide form, applicable to data frames:
+mtcars[1:4] %&amp;gt;% head() %&amp;gt;% by_row(min_max_df, .collate = &amp;quot;cols&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 6 × 6
+##     mpg   cyl  disp    hp  min1  max1
+##   &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt;
+## 1  21.0     6   160   110     6   160
+## 2  21.0     6   160   110     6   160
+## 3  22.8     4   108    93     4   108
+## 4  21.4     6   258   110     6   258
+## 5  18.7     8   360   175     8   360
+## 6  18.1     6   225   105     6   225&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;#long form, applicable to vectors
+mtcars[1:4] %&amp;gt;% head() %&amp;gt;% by_row(min_max_vec, .collate = &amp;quot;rows&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 12 × 6
+##      mpg   cyl  disp    hp  .row  .out
+##    &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;int&amp;gt; &amp;lt;dbl&amp;gt;
+## 1   21.0     6   160   110     1     6
+## 2   21.0     6   160   110     1   160
+## 3   21.0     6   160   110     2     6
+## 4   21.0     6   160   110     2   160
+## 5   22.8     4   108    93     3     4
+## 6   22.8     4   108    93     3   108
+## 7   21.4     6   258   110     4     6
+## 8   21.4     6   258   110     4   258
+## 9   18.7     8   360   175     5     8
+## 10  18.7     8   360   175     5   360
+## 11  18.1     6   225   105     6     6
+## 12  18.1     6   225   105     6   225&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This is actually a bit shit. A spurious “1” gets added to our column names in one case. And using row collation would behave almost the same as column collation for &lt;code&gt;min_max_df&lt;/code&gt;. In retrospect Hadley probably also hates &lt;code&gt;by_row&lt;/code&gt; because it does too much, catering to dataframe or vector based workflows.&lt;/p&gt;
+&lt;p&gt;In a post &lt;code&gt;by_row()&lt;/code&gt; world, there is one way to do this:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;chickwts %&amp;gt;% nest(weight) %&amp;gt;%
+    by&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+
+
+&lt;!-- BLOGDOWN-HEAD
+
+
+
+
+
+
+/BLOGDOWN-HEAD --&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Tidy Riffage</title>
+      <link>https://milesmcbain.github.io/post/tidyriffage/</link>
+      <pubDate>Sun, 02 Apr 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://milesmcbain.github.io/post/tidyriffage/</guid>
+      <description>&lt;!-- BLOGDOWN-BODY-BEFORE
+
+/BLOGDOWN-BODY-BEFORE --&gt;
+
+&lt;div id=&#34;melting-faces-with-tidy-tools&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Melting Faces with Tidy Tools&lt;/h2&gt;
+&lt;p&gt;Despite years of sporadic practice, I’m a fairly average musician. I’ve always been jealous of those ridiculously talented guitar shredders and Jazz freaks who can just root people to the spot, their jaws hanging open, struck dumb by the brilliance of what they are witnessing.&lt;/p&gt;
+&lt;p&gt;But lately something amazing has happened. When I am teaching people the &lt;code&gt;tidyverse&lt;/code&gt; I feel like I get a glimpse of what it is be that person. Or maybe this person:&lt;/p&gt;
+&lt;div&gt;
+&lt;p&gt;&lt;img src=&#34;http://i.giphy.com/MGZP3Kk1GstwI.gif&#34; alt=&#34;Math Math Math&#34; style=&#34;display: block; margin-left: auto; margin-right: auto&#34;&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;p&gt;Or perhaps more precisely, this person:&lt;/p&gt;
+&lt;div&gt;
+&lt;p&gt;&lt;img src=&#34;https://pbs.twimg.com/media/C2GPLjqWQAAswOY.jpg&#34; alt=&#34;You&#39;re wizard Hadley&#34; style=&#34;display: block; margin-left: auto; margin-right: auto; width:40%; max-height: 40%&#34;&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;p&gt;So let me share with you some &lt;code&gt;tidyverse&lt;/code&gt; riffs that you too can use to blow minds and melt faces. Presented in increasing order of riffage.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;lazy-na-check&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Lazy NA check&lt;/h2&gt;
+&lt;p&gt;Basic use of &lt;code&gt;purrr&lt;/code&gt; can still impress due to results returned as data frames. For added mysteriousity you can swap &lt;code&gt;map_df()&lt;/code&gt; for &lt;code&gt;summarise_all()&lt;/code&gt;.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;airquality %&amp;gt;%
+    map_df(.f = anyNA)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 1 × 6
+##   Ozone Solar.R  Wind  Temp Month   Day
+##   &amp;lt;lgl&amp;gt;   &amp;lt;lgl&amp;gt; &amp;lt;lgl&amp;gt; &amp;lt;lgl&amp;gt; &amp;lt;lgl&amp;gt; &amp;lt;lgl&amp;gt;
+## 1  TRUE    TRUE FALSE FALSE FALSE FALSE&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;string-to-factor-convert-all&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;String to factor convert-all&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;StringAsFactors=FALSE&lt;/code&gt; is defintiely the right way to go, but for modelling you’ll likely need those strings to be factors. Can reverse as variation.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;dat %&amp;gt;%
+    mutate_if(.predicate = is.character, 
+              .funs = as.factor)&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;lazy-na-vis&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Lazy NA Vis&lt;/h2&gt;
+&lt;p&gt;A key component of a great riff is surpsise. Base vis features are the little twist on this dataframe vis for NA. If you like this, you’ll love &lt;a href=&#34;https://github.com/njtierney/visdat&#34;&gt;visdat::vis_dat()&lt;/a&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;airquality %&amp;gt;%
+  map_df(is.na) %&amp;gt;%
+  as.matrix() %&amp;gt;%
+  t() %&amp;gt;%
+  image()&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;#####../content/post/tidyriffage_files/figure-html/unnamed-chunk-5-1.png&#34; width=&#34;1400&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;slick-effect-plot&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Slick Effect Plot&lt;/h2&gt;
+&lt;p&gt;Parsing linear model effects works great as a vis. A solid intro riff for a rant about how rad &lt;code&gt;broom&lt;/code&gt; is.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;glm_fit %&amp;gt;%
+  tidy() %&amp;gt;%
+  mutate(effect.lwr_ci = exp(estimate - 2*std.error),
+       effect = exp(estimate),
+       effect.upr_ci = exp(estimate + 2*std.error)) %&amp;gt;%
+  ggplot() + 
+  geom_point(aes(x=effect, y=term)) +
+  geom_errorbarh(aes(x=effect, 
+                     xmax=effect.upr_ci, 
+                     xmin=effect.lwr_ci, 
+                     y=term)) &lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;#####../content/post/tidyriffage_files/figure-html/unnamed-chunk-7-1.png&#34; width=&#34;1400&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;bulk-summary-features&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Bulk Summary Features&lt;/h2&gt;
+&lt;p&gt;Produce summary stats en-masse. Ripe for variable selection.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;airquality %&amp;gt;%
+    group_by(Month) %&amp;gt;%
+    summarise_at(.cols = vars(Ozone, Solar.R, Wind, Temp),
+                 .funs = funs(q1 = quantile(., probs=0.25),
+                              med = median,
+                              mean = mean,
+                              q3 = quantile(., probs = 0.75),
+                              sd = sd 
+                          ),
+                 na.rm = TRUE
+                 ) %&amp;gt;% names()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##  [1] &amp;quot;Month&amp;quot;        &amp;quot;Ozone_q1&amp;quot;     &amp;quot;Solar.R_q1&amp;quot;   &amp;quot;Wind_q1&amp;quot;     
+##  [5] &amp;quot;Temp_q1&amp;quot;      &amp;quot;Ozone_med&amp;quot;    &amp;quot;Solar.R_med&amp;quot;  &amp;quot;Wind_med&amp;quot;    
+##  [9] &amp;quot;Temp_med&amp;quot;     &amp;quot;Ozone_mean&amp;quot;   &amp;quot;Solar.R_mean&amp;quot; &amp;quot;Wind_mean&amp;quot;   
+## [13] &amp;quot;Temp_mean&amp;quot;    &amp;quot;Ozone_q3&amp;quot;     &amp;quot;Solar.R_q3&amp;quot;   &amp;quot;Wind_q3&amp;quot;     
+## [17] &amp;quot;Temp_q3&amp;quot;      &amp;quot;Ozone_sd&amp;quot;     &amp;quot;Solar.R_sd&amp;quot;   &amp;quot;Wind_sd&amp;quot;     
+## [21] &amp;quot;Temp_sd&amp;quot;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;lag-it-out&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Lag It Out&lt;/h2&gt;
+&lt;p&gt;Generating lags can be a drag, but you can create all the lags for all the things with a wave of mutate_at!&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;airquality %&amp;gt;% 
+  arrange(Month, Day) %&amp;gt;%
+  mutate_at(.cols = vars(Ozone, Solar.R, Wind, Temp),
+            .funs = funs(lag1 = lag(.,1),
+                         lag3 = lag(.,3),
+                         lag7 = lag(.,7),
+                         lag14 = lag(.,14))) %&amp;gt;%
+  names()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##  [1] &amp;quot;Ozone&amp;quot;         &amp;quot;Solar.R&amp;quot;       &amp;quot;Wind&amp;quot;          &amp;quot;Temp&amp;quot;         
+##  [5] &amp;quot;Month&amp;quot;         &amp;quot;Day&amp;quot;           &amp;quot;Ozone_lag1&amp;quot;    &amp;quot;Solar.R_lag1&amp;quot; 
+##  [9] &amp;quot;Wind_lag1&amp;quot;     &amp;quot;Temp_lag1&amp;quot;     &amp;quot;Ozone_lag3&amp;quot;    &amp;quot;Solar.R_lag3&amp;quot; 
+## [13] &amp;quot;Wind_lag3&amp;quot;     &amp;quot;Temp_lag3&amp;quot;     &amp;quot;Ozone_lag7&amp;quot;    &amp;quot;Solar.R_lag7&amp;quot; 
+## [17] &amp;quot;Wind_lag7&amp;quot;     &amp;quot;Temp_lag7&amp;quot;     &amp;quot;Ozone_lag14&amp;quot;   &amp;quot;Solar.R_lag14&amp;quot;
+## [21] &amp;quot;Wind_lag14&amp;quot;    &amp;quot;Temp_lag14&amp;quot;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;search-model-space-over-formulae-link-functions-anything.&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Search model space over formulae, link functions, ANYTHING.&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;purrr&lt;/code&gt;, &lt;code&gt;modelr&lt;/code&gt;, &lt;code&gt;dplyr&lt;/code&gt;, &lt;code&gt;broom&lt;/code&gt; and &lt;code&gt;tidyr&lt;/code&gt; all working in a glorious harmony. If Classical Gas could be played with tidy tools it would go something like this. People will weep. Either for beauty or lost time.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;data(&amp;quot;challeng&amp;quot;)
+link &amp;lt;- c(&amp;quot;logit&amp;quot;, &amp;quot;probit&amp;quot;, &amp;quot;cloglog&amp;quot;)
+formulas &amp;lt;- formulas(.response = ~ cbind(Fail, n-Fail), 
+                     ~ Temp, 
+                     ~ Temp + Pres) 
+
+model_grid &amp;lt;- as_data_frame(expand.grid(formulas, link, 
+                                        stringsAsFactors = FALSE))
+names(model_grid) &amp;lt;- c(&amp;quot;formula&amp;quot;,&amp;quot;link&amp;quot;) 
+
+model_grid %&amp;gt;%
+mutate(family = map(link, binomial),
+       model = paste0(formula),
+       fit = pmap(.l = list( formula = formula, family = family),
+                  .f = glm,
+                  data = challeng),
+       results = map(fit, glance)) %&amp;gt;%
+unnest(results)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 6 × 12
+##         formula    link       family                               model
+##          &amp;lt;list&amp;gt;   &amp;lt;chr&amp;gt;       &amp;lt;list&amp;gt;                               &amp;lt;chr&amp;gt;
+## 1 &amp;lt;S3: formula&amp;gt;   logit &amp;lt;S3: family&amp;gt;        cbind(Fail, n - Fail) ~ Temp
+## 2 &amp;lt;S3: formula&amp;gt;   logit &amp;lt;S3: family&amp;gt; cbind(Fail, n - Fail) ~ Temp + Pres
+## 3 &amp;lt;S3: formula&amp;gt;  probit &amp;lt;S3: family&amp;gt;        cbind(Fail, n - Fail) ~ Temp
+## 4 &amp;lt;S3: formula&amp;gt;  probit &amp;lt;S3: family&amp;gt; cbind(Fail, n - Fail) ~ Temp + Pres
+## 5 &amp;lt;S3: formula&amp;gt; cloglog &amp;lt;S3: family&amp;gt;        cbind(Fail, n - Fail) ~ Temp
+## 6 &amp;lt;S3: formula&amp;gt; cloglog &amp;lt;S3: family&amp;gt; cbind(Fail, n - Fail) ~ Temp + Pres
+## # ... with 8 more variables: fit &amp;lt;list&amp;gt;, null.deviance &amp;lt;dbl&amp;gt;,
+## #   df.null &amp;lt;int&amp;gt;, logLik &amp;lt;dbl&amp;gt;, AIC &amp;lt;dbl&amp;gt;, BIC &amp;lt;dbl&amp;gt;, deviance &amp;lt;dbl&amp;gt;,
+## #   df.residual &amp;lt;int&amp;gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;div id=&#34;thats-what-im-talkin-bout&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;That’s what I’m talkin’ ’bout!&lt;/h3&gt;
+&lt;div&gt;
+&lt;iframe width=&#34;560&#34; height=&#34;315&#34; src=&#34;https://www.youtube.com/embed/EEzyrpfrPEI&#34; frameborder=&#34;0&#34; allowfullscreen style=&#34;display: block; margin-left: auto; margin-right: auto&#34;&gt;
+&lt;/iframe&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+
+
+
+&lt;!-- BLOGDOWN-HEAD
+
+
+
+
+
+
+/BLOGDOWN-HEAD --&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>About</title>
+      <link>https://milesmcbain.github.io/pages/about/</link>
+      <pubDate>Thu, 30 Mar 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://milesmcbain.github.io/pages/about/</guid>
+      <description>&lt;p&gt;I am Research Associate at &lt;a href=&#34;https://www.qut.edu.au/&#34;&gt;Queensland Univerity of Technology&lt;/a&gt; and a Visiting Scientist at the &lt;a href=&#34;https://www.data61.csiro.au/&#34;&gt;CSIRO Data61&lt;/a&gt;. I work on applied statistics problems with industry partners as well as meta-projects that aim to make data analysis easier. My work interests are R, data wrangling, the discipline of reprodicble analysis, forecasting from simulations, and visualisation in AR/VR.&lt;/p&gt;
+
+&lt;p&gt;In my spare time I help organise the Brisbane Users of R Group (BURGr), and have put on 2 R unconferences is Brisbane.&lt;/p&gt;
+
+&lt;p&gt;The best way to get my attention is to tag &lt;a href=&#34;https://twitter.com/MilesMcBain&#34;&gt;@milesmcbain on Twitter&lt;/a&gt;.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>R Has No Primitives</title>
+      <link>https://milesmcbain.github.io/post/r_has_no_primitives/</link>
+      <pubDate>Thu, 26 May 2016 00:00:00 +0000</pubDate>
+      
+      <guid>https://milesmcbain.github.io/post/r_has_no_primitives/</guid>
+      <description>&lt;!-- BLOGDOWN-BODY-BEFORE
+
+/BLOGDOWN-BODY-BEFORE --&gt;
+
+&lt;div id=&#34;the-good-bit&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;The Good Bit&lt;/h1&gt;
+&lt;p&gt;Some weeks ago Hadley tweeted &lt;a href=&#34;https://twitter.com/hadleywickham/status/732288980549390336&#34;&gt;this graphic&lt;/a&gt; about objects and names in R. Someone asked him to give a situation where this was important and he said:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;I haven’t been able to figure that out. But you’ll make terrible predictions about performance unless you know&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;I thought I knew what this meant. I truly did. But it wasn’t until I saw the conversation around &lt;a href=&#34;https://twitter.com/nj_tierney/status/735087930251710464&#34;&gt;this tweet&lt;/a&gt; from @&lt;a href=&#34;https://twitter.com/nj_tierney&#34;&gt;nj_tierney&lt;/a&gt; that I can honestly say the penny finally dropped. And boy did it drop. I’ll say this real slow and clear like for old school coders like me:&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;R has no primitive types.&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;No seriously. Everything is an object. Integers and floats are always numeric vectors, even when then are 1 just one element long. EVEN bloody boolean values which can be represented by a single bit in memory are objects. check this out:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(pryr)
+abool &amp;lt;- T
+object_size(abool)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 48 B&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;48 bytes for information that can be represented by a single bit! O.O In truth this isn’t so bad because most langauges pad their bools. But the point is &lt;code&gt;abool&lt;/code&gt; is not a bool. It’s a SEXP… How cute.&lt;/p&gt;
+&lt;p&gt;SEXPs are header thingies that describe objects. Further to our discussion today, they have a &lt;code&gt;named&lt;/code&gt; attribute that records how many names an object has been assigned. Hence Hadley’s graphic. If you look at the &lt;a href=&#34;https://cran.r-project.org/doc/manuals/r-release/R-ints.html#SEXPTYPEs&#34;&gt;beastiary of SEXPs in the R language&lt;/a&gt; you will also see there are no non-vector data type objects.&lt;/p&gt;
+&lt;div class=&#34;figure&#34;&gt;
+&lt;img src=&#34;http://i.giphy.com/OK27wINdQS5YQ.gif&#34; /&gt;
+
+&lt;/div&gt;
+&lt;p&gt;I know right?&lt;/p&gt;
+&lt;p&gt;It gets better. This framework allows R to do some neat tricks with the assignment operator. I’ll quote section 1.1.2 of the R manual at you, because I think it explains it quite nicely:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;The named field is set and accessed by the SET_NAMED and NAMED macros, and take values 0, 1 and 2. R has a &amp;#39;call by value&amp;#39; illusion, so an assignment like
+
+b &amp;lt;- a
+appears to make a copy of a and refer to it as b. However, if neither a nor b are subsequently altered there is no need to copy. What really happens is that a new symbol b is bound to the same value as a and the named field on the value object is set (in this case to 2). When an object is about to be altered, the named field is consulted. A value of 2 means that the object must be duplicated before being changed. (Note that this does not say that it is necessary to duplicate, only that it should be duplicated whether necessary or not.) A value of 0 means that it is known that no other SEXP shares data with this object, and so it may safely be altered. A value of 1 is used for situations like
+
+dim(a) &amp;lt;- c(7, 2)
+where in principle two copies of a exist for the duration of the computation as (in principle)
+
+a &amp;lt;- `dim&amp;lt;-`(a, c(7, 2))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;TLDR:&lt;/strong&gt; R delays copies due to assignment until it absolutely has to, and can optimise out ‘in principle’ copies. There is no call by value. It was all… an ‘illusion’.&lt;/p&gt;
+&lt;div class=&#34;figure&#34;&gt;
+&lt;img src=&#34;http://i.giphy.com/qJxFuXXWpkdEI.gif&#34; /&gt;
+
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;a-history-lesson&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;A History Lesson&lt;/h1&gt;
+&lt;p&gt;Why am I making a big deal out of this? Well for me this was very surprising. I learned to code in C++, where there was disctinction between primitive types and objects. Primitive types don’t waste any memory on headers, they are literally just the raw data represented in memory, and the compiler does the job of to tracking their type. For example an &lt;code&gt;int&lt;/code&gt; takes up 4 or 8 bytes of memory (depending on 32, or 64 bit) and it uses all of that memory to represent the numerical value of that integer.&lt;/p&gt;
+&lt;p&gt;Let’s compare that old world:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(Rcpp)
+Rcpp::cppFunction(
+&amp;#39;void primitiveDemo(){
+  NumericVector output(2);  
+  
+  int a = 2;
+  int b = a;
+  int asize = sizeof(a);
+  int bsize = sizeof(b);
+  
+  Rcpp::Rcout &amp;lt;&amp;lt; &amp;quot;address of a: &amp;quot; &amp;lt;&amp;lt; &amp;amp;a &amp;lt;&amp;lt; &amp;quot;, address of b: &amp;quot; &amp;lt;&amp;lt; &amp;amp;b;
+  Rcpp::Rcout &amp;lt;&amp;lt; &amp;quot;, size of a: &amp;quot; &amp;lt;&amp;lt; asize &amp;lt;&amp;lt; &amp;quot;, size of b: &amp;quot; &amp;lt;&amp;lt; bsize;
+  
+  return;
+}&amp;#39;
+)
+
+primitiveDemo()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## address of a: 0x7fff5ce89c00, address of b: 0x7fff5ce89bfc, size of a: 4, size of b: 4&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;With the new:&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;a &amp;lt;- 2
+b &amp;lt;- a
+paste0(&amp;quot;address of a: &amp;quot;, address(a), &amp;quot;, address of b: &amp;quot;, address(b))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] &amp;quot;address of a: 0x7f9309530cd8, address of b: 0x7f9309530cd8&amp;quot;&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;paste0(&amp;quot;size of a: &amp;quot;, object_size(a), &amp;quot;, size of b: &amp;quot;, object_size(b))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] &amp;quot;size of a: 48, size of b: 48&amp;quot;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So R is currently using a total of 48 bytes for storage because it did not actually make a copy. C++ makes the copy and uses a total of 8 bytes&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;take-away&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Take Away&lt;/h1&gt;
+&lt;p&gt;If you’re tyring to optimise R while thinking like a c++ coder, you may well be doing more harm than good. I myself have fallen foul of this in an attempt to modify data frames in place with my &lt;code&gt;pushr&lt;/code&gt; package. It ended up just being syntactic sugar, with no observable performance boost.&lt;/p&gt;
+&lt;/div&gt;
+
+
+
+&lt;!-- BLOGDOWN-HEAD
+
+
+
+
+
+
+/BLOGDOWN-HEAD --&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>
